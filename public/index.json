@@ -1,0 +1,48 @@
+{
+  "name": "Kraken Official Plugins Store",
+  "description": "Repositório e Catálogo Oficial de Plugins Comunitários e Oficiais para o Kraken Admin Tool",
+  "url": "https://gfidelis.github.io/kraken-plugins-repository/index.json",
+  "updated_at": "2026-10-28T16:00:00Z",
+  "plugins": [
+    {
+      "id": "br.mpt.kraken.external-port-guard",
+      "name": "External Port Guard",
+      "version": "1.0.0",
+      "description": "Audita portas com acesso externo nos hosts monitorados e aplica bloqueios seguros, preservando o acesso SSH.",
+      "author": "Guilherme Fidelis da Silva",
+      "homepage": "https://github.com/gfidelis/kraken-admin-tool",
+      "license": "Apache-2.0",
+      "download_url": "https://raw.githubusercontent.com/gfidelis/kraken-admin-tool/main/examples/plugins/host-port-auditor.zip",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "runtime_type": "wasm",
+      "permissions": [
+        "ui:sidebar",
+        "ui:dashboard_widget",
+        "ui:server_tab",
+        "hosts:read",
+        "hosts:exec",
+        "storage:kv"
+      ],
+      "readme_markdown": "# External Port Guard\n\nPlugin de segurança que atua diretamente nos servidores remotos conectados ao Kraken.\n\n### Recursos:\n- Auditoria de listeners em `0.0.0.0` e `[::]` via SSH\n- Bloqueio automatizado no firewall (iptables)\n- Salvaguarda rígida anti-bloqueio para SSH (porta 22)\n- Suporte a servidores Docker e Linux bare-metal"
+    },
+    {
+      "id": "com.kraken.port-auditor",
+      "name": "Host Port Auditor",
+      "version": "1.0.0",
+      "description": "Audita portas abertas e serviços expostos no container do Kraken Admin Tool.",
+      "author": "Kraken Core Team",
+      "homepage": "https://github.com/kraken/admin-tool",
+      "license": "MIT",
+      "download_url": "https://raw.githubusercontent.com/gfidelis/kraken-admin-tool/main/examples/plugins/host-port-auditor.zip",
+      "sha256": "4a71cb4611ccbc0dcbf316eb792ff4ad1fbfeffad8bd7a0ffdf477bd4d9f64aa",
+      "runtime_type": "wasm",
+      "permissions": [
+        "ui:sidebar",
+        "ui:dashboard_widget",
+        "hosts:read",
+        "storage:kv"
+      ],
+      "readme_markdown": "# Host Port Auditor\n\nPlugin de demonstração e auditoria rápida local com WebAssembly sandbox isolado."
+    }
+  ]
+}
