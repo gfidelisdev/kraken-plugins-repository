@@ -2,7 +2,7 @@
   "name": "Kraken Official Plugins Store",
   "description": "Repositório e Catálogo Oficial de Plugins Comunitários e Oficiais para o Kraken Admin Tool",
   "url": "https://gfidelis.github.io/kraken-plugins-repository/index.json",
-  "updated_at": "2026-10-28T16:00:00Z",
+  "updated_at": "2026-10-28T16:03:19Z",
   "plugins": [
     {
       "id": "br.mpt.kraken.external-port-guard",
