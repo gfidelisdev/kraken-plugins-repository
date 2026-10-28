@@ -1,6 +1,6 @@
 {
   "name": "kraken-plugins-repository",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Kraken Admin Tool — Official Plugins Repository & Community Store for GitHub Pages",
   "scripts": {
