@@ -1,4 +1,4 @@
-import { PluginCatalogItem, GitHubUser } from "@/types";
+import { PluginCatalogItem, GitHubUser, PluginCatalogIndex } from "@/types";
 import { parseGitHubRepoUrl } from "./utils";
 
 export interface GitHubRepoDetails {
@@ -173,5 +173,122 @@ export async function inspectGitHubPluginRepo(
     github_repo: `${owner}/${repo}`,
     release_tag: releaseTag,
     stars: repoData.stargazers_count || 0,
+  };
+}
+
+// UTF-8 safe base64 encoding/decoding for browser and node
+export function toBase64(str: string): string {
+  const bytes = new TextEncoder().encode(str);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+export function fromBase64(base64: string): string {
+  const binary = atob(base64.replace(/\s/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+export interface PublishResult {
+  commitUrl: string;
+  sha: string;
+  plugin: PluginCatalogItem;
+}
+
+// Commits the new/updated plugin directly into public/index.json on GitHub
+export async function publishPluginToGitHubRepo(
+  plugin: PluginCatalogItem,
+  token: string,
+  targetRepo = process.env.NEXT_PUBLIC_CATALOG_REPO || "gfidelisdev/kraken-plugins-repository"
+): Promise<PublishResult> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github.v3+json",
+    "Content-Type": "application/json",
+  };
+
+  const fileUrl = `https://api.github.com/repos/${targetRepo}/contents/public/index.json`;
+  const getRes = await fetch(fileUrl, { headers });
+
+  if (!getRes.ok) {
+    if (getRes.status === 401) {
+      throw new Error("Token do GitHub inválido ou expirado.");
+    }
+    if (getRes.status === 403) {
+      throw new Error(
+        `Permissão insuficiente para alterar o repositório ${targetRepo}. O token precisa de permissão de escrita ('repo' ou fine-grained 'Contents: Read and write').`
+      );
+    }
+    if (getRes.status === 404) {
+      throw new Error(`Arquivo public/index.json ou repositório ${targetRepo} não encontrado.`);
+    }
+    throw new Error(`Falha ao ler public/index.json do GitHub (${getRes.statusText})`);
+  }
+
+  const fileData = await getRes.json();
+  const sha = fileData.sha;
+
+  let catalog: PluginCatalogIndex;
+  try {
+    const rawContent = fromBase64(fileData.content);
+    catalog = JSON.parse(rawContent);
+  } catch {
+    throw new Error("Não foi possível decodificar o arquivo public/index.json do repositório.");
+  }
+
+  if (!Array.isArray(catalog.plugins)) {
+    catalog.plugins = [];
+  }
+
+  // Update existing or prepend new
+  const existingIndex = catalog.plugins.findIndex((p) => p.id === plugin.id);
+  if (existingIndex >= 0) {
+    catalog.plugins[existingIndex] = plugin;
+  } else {
+    catalog.plugins.unshift(plugin);
+  }
+  catalog.updated_at = new Date().toISOString();
+
+  const formattedJson = JSON.stringify(catalog, null, 2) + "\n";
+  const newBase64Content = toBase64(formattedJson);
+
+  const putRes = await fetch(fileUrl, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({
+      message: `feat(catalog): publish plugin ${plugin.name} (${plugin.id})`,
+      content: newBase64Content,
+      sha: sha,
+    }),
+  });
+
+  if (!putRes.ok) {
+    const errorData = await putRes.json().catch(() => ({}));
+    if (putRes.status === 403) {
+      throw new Error(
+        `Permissão negada ao commitar no repositório ${targetRepo}. Seu token precisa de permissão de escrita ('repo' ou 'Contents: Read and write').`
+      );
+    }
+    if (putRes.status === 409) {
+      throw new Error("Conflito de versão no GitHub (o arquivo index.json foi alterado recentemente). Tente novamente.");
+    }
+    throw new Error(errorData.message || `Erro ao commitar no GitHub: ${putRes.statusText}`);
+  }
+
+  const commitData = await putRes.json();
+  const commitUrl =
+    commitData.commit?.html_url ||
+    `https://github.com/${targetRepo}/commits/main/public/index.json`;
+
+  return {
+    commitUrl,
+    sha: commitData.content?.sha || "",
+    plugin,
   };
 }

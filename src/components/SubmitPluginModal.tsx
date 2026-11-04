@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { GitHubUser, PluginCatalogItem } from "@/types";
-import { inspectGitHubPluginRepo, GitHubRepoDetails } from "@/lib/github";
+import { inspectGitHubPluginRepo, GitHubRepoDetails, publishPluginToGitHubRepo } from "@/lib/github";
 import { saveCustomPlugin } from "@/lib/catalog";
 import {
   Plus,
@@ -17,6 +17,7 @@ import {
   Tag,
   Star,
   ExternalLink,
+  GitCommit,
 } from "lucide-react";
 
 interface SubmitPluginModalProps {
@@ -36,9 +37,11 @@ export function SubmitPluginModal({
 }: SubmitPluginModalProps) {
   const [repoUrl, setRepoUrl] = useState("");
   const [isInspecting, setIsInspecting] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [inspectedPlugin, setInspectedPlugin] = useState<GitHubRepoDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [commitUrl, setCommitUrl] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -53,6 +56,7 @@ export function SubmitPluginModal({
     setError(null);
     setInspectedPlugin(null);
     setSuccessMessage(null);
+    setCommitUrl(null);
 
     try {
       const details = await inspectGitHubPluginRepo(repoUrl.trim(), user?.token);
@@ -64,7 +68,7 @@ export function SubmitPluginModal({
     }
   };
 
-  const handleConfirmPublish = () => {
+  const handleConfirmPublish = async (mode: "github" | "local" = "github") => {
     if (!inspectedPlugin) return;
 
     const catalogItem: PluginCatalogItem = {
@@ -85,15 +89,54 @@ export function SubmitPluginModal({
       stars: inspectedPlugin.stars,
     };
 
-    saveCustomPlugin(catalogItem);
-    onPluginAdded(catalogItem);
-    setSuccessMessage(`Plugin "${inspectedPlugin.name}" adicionado com sucesso ao catálogo!`);
-    setTimeout(() => {
-      onClose();
-      setInspectedPlugin(null);
-      setRepoUrl("");
+    if (mode === "github") {
+      if (!user?.token) {
+        setError(
+          "Para salvar o plugin no repositório e atualizar o index.json oficial na nuvem, você precisa fazer login com seu GitHub Token."
+        );
+        return;
+      }
+
+      setIsPublishing(true);
+      setError(null);
       setSuccessMessage(null);
-    }, 1500);
+      setCommitUrl(null);
+
+      try {
+        const result = await publishPluginToGitHubRepo(catalogItem, user.token);
+        saveCustomPlugin(catalogItem);
+        onPluginAdded(catalogItem);
+        setCommitUrl(result.commitUrl);
+        setSuccessMessage(
+          `Plugin "${inspectedPlugin.name}" publicado com sucesso! O commit foi gravado no repositório e o Cloudflare irá recompilar o index.json em instantes.`
+        );
+      } catch (err: any) {
+        setError(err.message || "Erro ao publicar no GitHub.");
+      } finally {
+        setIsPublishing(false);
+      }
+    } else {
+      // Local fallback
+      saveCustomPlugin(catalogItem);
+      onPluginAdded(catalogItem);
+      setSuccessMessage(`Plugin "${inspectedPlugin.name}" adicionado apenas localmente no navegador!`);
+      setTimeout(() => {
+        onClose();
+        setInspectedPlugin(null);
+        setRepoUrl("");
+        setSuccessMessage(null);
+        setCommitUrl(null);
+      }, 1500);
+    }
+  };
+
+  const handleClose = () => {
+    onClose();
+    setInspectedPlugin(null);
+    setRepoUrl("");
+    setError(null);
+    setSuccessMessage(null);
+    setCommitUrl(null);
   };
 
   return (
@@ -163,17 +206,42 @@ export function SubmitPluginModal({
         {error && (
           <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2.5">
             <AlertCircle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
-            <div>
-              <span className="font-semibold block">Erro na inspeção do repositório:</span>
-              <p className="text-[11px] text-rose-300/80 mt-0.5 leading-relaxed">{error}</p>
+            <div className="space-y-1">
+              <span className="font-semibold block">Erro:</span>
+              <p className="text-[11px] text-rose-300/80 leading-relaxed">{error}</p>
             </div>
           </div>
         )}
 
         {successMessage && (
-          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-2.5">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-            <span className="font-semibold">{successMessage}</span>
+          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs space-y-2">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+              <div>
+                <span className="font-semibold block">{successMessage}</span>
+              </div>
+            </div>
+            {commitUrl && (
+              <div className="pt-1 flex items-center justify-between border-t border-emerald-500/20">
+                <a
+                  href={commitUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-teal-300 hover:text-white underline font-mono"
+                >
+                  <GitCommit className="h-3.5 w-3.5" />
+                  Ver Commit no GitHub
+                  <ExternalLink className="h-3 w-3 ml-0.5" />
+                </a>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-3 py-1 rounded-lg bg-emerald-500 text-slate-950 font-bold text-xs hover:bg-emerald-400 transition"
+                >
+                  Concluir e Fechar
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -262,6 +330,50 @@ export function SubmitPluginModal({
               </a>
             </div>
 
+            {/* Publishing options */}
+            {!user ? (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 space-y-2.5">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                  <div>
+                    <span className="font-semibold block">Você não está autenticado com o GitHub</span>
+                    <span className="text-[11px] text-amber-300/80 block mt-0.5 leading-relaxed">
+                      Para gravar o plugin no repositório e atualizar o <code>index.json</code> na nuvem (Cloudflare), é necessário fazer login com um GitHub Token com permissão de escrita.
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={onRequireLogin}
+                    className="px-3 py-1.5 rounded-lg bg-teal-500 text-slate-950 font-bold text-xs hover:bg-teal-400 transition flex items-center gap-1.5"
+                  >
+                    <Github className="h-3.5 w-3.5" />
+                    Fazer Login com GitHub
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmPublish("local")}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700 transition"
+                  >
+                    Adicionar apenas localmente (teste no navegador)
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-between text-xs text-teal-300">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+                  <span>
+                    Autenticado como <strong className="font-mono text-white">@{user.login}</strong>
+                  </span>
+                </div>
+                <span className="text-[11px] text-teal-400/80">
+                  O commit será criado direto na branch <code>main</code>
+                </span>
+              </div>
+            )}
+
             {/* Action buttons */}
             <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-800">
               <button
@@ -271,14 +383,26 @@ export function SubmitPluginModal({
               >
                 Voltar
               </button>
-              <button
-                type="button"
-                onClick={handleConfirmPublish}
-                className="px-5 py-2 text-xs font-bold bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-teal-500/20"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                Confirmar e Adicionar ao Catálogo
-              </button>
+              {user && (
+                <button
+                  type="button"
+                  disabled={isPublishing}
+                  onClick={() => handleConfirmPublish("github")}
+                  className="px-5 py-2 text-xs font-bold bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-teal-500/20 disabled:opacity-50"
+                >
+                  {isPublishing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Commitando no Repositório GitHub...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="h-4 w-4" />
+                      Confirmar e Publicar no Catálogo (index.json)
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         )}

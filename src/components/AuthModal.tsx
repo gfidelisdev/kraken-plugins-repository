@@ -110,7 +110,7 @@ export function AuthModal({ isOpen, onClose, user, onLogin, onLogout }: AuthModa
         ) : (
           <form onSubmit={handleAuthenticate} className="space-y-4">
             <p className="text-xs text-slate-400 leading-relaxed">
-              O repositório é hospedado estaticamente no <strong>GitHub Pages</strong>. Para cadastrar ou sincronizar plugins sem necessidade de servidor intermediário, informe um <strong>GitHub Personal Access Token (classic ou fine-grained)</strong> com escopo de leitura de repositórios.
+              Para publicar e atualizar o catálogo oficial (<code>index.json</code>) direto no repositório, informe um <strong>GitHub Personal Access Token</strong> com permissão de escrita (escopo <strong><code>repo</code></strong> ou fine-grained <strong><code>Contents: Read and write</code></strong>).
             </p>
 
             <div className="space-y-1.5">
