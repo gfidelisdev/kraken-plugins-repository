@@ -7,8 +7,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // If deployed to user.github.io/repo-name, base path is /repo-name
-  basePath: process.env.NEXT_PUBLIC_BASE_PATH || (isProd && repoName ? `/${repoName}` : ''),
+  // If deployed to user.github.io/repo-name, base path is /repo-name (can be overridden or cleared via NEXT_PUBLIC_BASE_PATH)
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH !== undefined 
+    ? process.env.NEXT_PUBLIC_BASE_PATH 
+    : (isProd && repoName ? `/${repoName}` : ''),
   trailingSlash: true,
 };
 
